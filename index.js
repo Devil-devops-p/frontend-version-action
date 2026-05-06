@@ -101,9 +101,42 @@ try {
 
     } else {
       console.log("Not enough git history for comparison (only 1 commit)");
-      coreLibChanged = false;
-      mainRepoChanged = false;
-      anyChanges = false;
+
+      // Fallback: Check for uncommitted changes
+      try {
+        const uncommittedDiff = execSync("git diff --name-only").toString();
+        const stagedDiff = execSync("git diff --cached --name-only").toString();
+        const allChanges = uncommittedDiff + stagedDiff;
+
+        if (allChanges.trim()) {
+          console.log("Found uncommitted changes, analyzing...");
+
+          coreLibChanged = allChanges.includes("projects/core-lib/healthcare-ui-core-lib") ||
+            allChanges.includes("healthcare-ui-core-lib");
+
+          const currentDirChanges = allChanges.split("\n").filter(file =>
+            file.trim() &&
+            !file.includes("projects/core-lib/healthcare-ui-core-lib") &&
+            !file.includes("healthcare-ui-core-lib")
+          ).length > 0;
+
+          mainRepoChanged = currentDirChanges;
+          anyChanges = coreLibChanged || mainRepoChanged;
+
+          console.log("Uncommitted - Core-lib changed:", coreLibChanged);
+          console.log("Uncommitted - Main repo changed:", mainRepoChanged);
+        } else {
+          console.log("No uncommitted changes found");
+          coreLibChanged = false;
+          mainRepoChanged = false;
+          anyChanges = false;
+        }
+      } catch (err) {
+        console.log("Failed to check uncommitted changes:", err.message);
+        coreLibChanged = false;
+        mainRepoChanged = false;
+        anyChanges = false;
+      }
     }
 
   } catch (err) {
