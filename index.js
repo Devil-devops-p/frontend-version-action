@@ -53,20 +53,32 @@ try {
   let deletions = 0;
 
   try {
-    const diffNames = execSync("git diff --name-only HEAD~1 HEAD").toString().trim();
-    files = diffNames ? diffNames.split("\n").length : 0;
+    // Check if we have enough history to compare
+    const gitLog = execSync("git log --oneline | wc -l").toString().trim();
+    const commitCount = parseInt(gitLog);
 
-    const diffStats = execSync("git diff --numstat HEAD~1 HEAD").toString().trim();
-    diffStats.split("\n").forEach(line => {
-      const [add, del] = line.split("\t");
-      insertions += parseInt(add) || 0;
-      deletions += parseInt(del) || 0;
-    });
+    if (commitCount > 1) {
+      const diffNames = execSync("git diff --name-only HEAD~1 HEAD").toString().trim();
+      files = diffNames ? diffNames.split("\n").length : 0;
 
-    const diff = execSync("git diff --name-only HEAD~1 HEAD").toString();
-    coreLibChanged = diff.includes("projects/core-lib/healthcare-ui-core-lib");
+      const diffStats = execSync("git diff --numstat HEAD~1 HEAD").toString().trim();
+      diffStats.split("\n").forEach(line => {
+        const [add, del] = line.split("\t");
+        insertions += parseInt(add) || 0;
+        deletions += parseInt(del) || 0;
+      });
 
-  } catch { }
+      const diff = execSync("git diff --name-only HEAD~1 HEAD").toString();
+      coreLibChanged = diff.includes("projects/core-lib/healthcare-ui-core-lib");
+    } else {
+      console.log("Not enough git history for comparison (only 1 commit)");
+      coreLibChanged = false;
+    }
+
+  } catch (err) {
+    console.log("Git diff failed, assuming no core-lib changes:", err.message);
+    coreLibChanged = false;
+  }
 
   console.log("Core-lib changed:", coreLibChanged);
 
@@ -150,8 +162,8 @@ try {
     fs.writeFileSync(file, content);
   });
 
-  // 🔹 Output version for GitHub Actions
-  console.log(`::set-output name=version::${finalVersion}`);
+  // 🔹 Output version for GitHub Actions (using new format)
+  console.log(`version=${finalVersion} >> $GITHUB_OUTPUT`);
 
 } catch (err) {
   console.error(`::error::${err.message}`);
