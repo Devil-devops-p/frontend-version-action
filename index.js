@@ -32,20 +32,32 @@ try {
   try {
     execSync(`git fetch origin ${branch}`);
 
-    const diffNames = execSync(`git diff --name-only origin/${branch}...HEAD`)
-      .toString().trim();
+    // Try to get diff from origin/branch...HEAD
+    let diffNames, diffStats;
+    try {
+      diffNames = execSync(`git diff --name-only origin/${branch}...HEAD`)
+        .toString().trim();
+      diffStats = execSync(`git diff --numstat origin/${branch}...HEAD`)
+        .toString().trim();
+    } catch (diffError) {
+      console.log("Origin diff failed, trying uncommitted changes:", diffError.message);
+      // Fallback to checking uncommitted changes
+      diffNames = execSync(`git diff --name-only HEAD`)
+        .toString().trim();
+      diffStats = execSync(`git diff --numstat HEAD`)
+        .toString().trim();
+    }
 
     changedFiles = diffNames ? diffNames.split("\n") : [];
 
-    const diffStats = execSync(`git diff --numstat origin/${branch}...HEAD`)
-      .toString().trim();
-
-    diffStats.split("\n").forEach(line => {
-      if (!line) return;
-      const [add, del] = line.split("\t");
-      insertions += parseInt(add) || 0;
-      deletions += parseInt(del) || 0;
-    });
+    if (diffStats) {
+      diffStats.split("\n").forEach(line => {
+        if (!line) return;
+        const [add, del] = line.split("\t");
+        insertions += parseInt(add) || 0;
+        deletions += parseInt(del) || 0;
+      });
+    }
 
   } catch (e) {
     console.log("Diff fallback:", e.message);
