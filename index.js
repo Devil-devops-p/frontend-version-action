@@ -89,14 +89,9 @@ try {
 
     // STEP 1: base version
     if (envVersion === jsonVersion) {
-      // If core-lib changed or versions mismatched, increment
-      if (coreLibChanged) {
-        patch += 1;
-        console.log("Core-lib changed and versions equal → increment patch");
-      } else {
-        patch += 1;
-        console.log("Regular changes and versions equal → increment patch");
-      }
+      // Always increment for any change (including small 1-word changes)
+      patch += 1;
+      console.log("Changes detected and versions equal → increment patch");
     } else {
       const versionGreater = (a, b) =>
         a.localeCompare(b, undefined, { numeric: true }) > 0;
