@@ -2,8 +2,16 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 
 try {
-  const versionFile = process.env.INPUT_VERSION_FILE || process.argv[2];
+  const versionFile = process.env.INPUT_VERSION_FILE;
   const envFiles = (process.env.INPUT_ENV_FILES || "").split(",").filter(f => f.trim());
+
+  if (!versionFile) {
+    throw new Error("version-file input is required");
+  }
+
+  if (envFiles.length === 0 || envFiles[0] === "") {
+    throw new Error("env-files input is required");
+  }
 
   // 🔹 Read JSON version
   const data = JSON.parse(fs.readFileSync(versionFile, "utf8"));
