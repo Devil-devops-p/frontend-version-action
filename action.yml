@@ -1,0 +1,19 @@
+name: "Version Bump Action"
+description: "Increment version from core-lib and update files"
+
+inputs:
+  version-file:
+    description: "Path to version.json"
+    required: true
+
+  env-files:
+    description: "Comma-separated env files to update"
+    required: true
+
+outputs:
+  version:
+    description: "New version"
+
+runs:
+  using: "node20"
+  main: "index.js"
