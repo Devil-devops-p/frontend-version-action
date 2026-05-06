@@ -2,284 +2,154 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 
 try {
-  // Debug: Log all environment variables that start with INPUT_
-  console.log("Available INPUT variables:", Object.keys(process.env).filter(k => k.startsWith('INPUT_')));
-
   const versionFile = process.env['INPUT_VERSION-FILE'];
   const envFiles = (process.env['INPUT_ENV-FILES'] || "")
-    .split(",")
-    .map(f => f.trim())
-    .filter(f => f.length > 0);
+    .split(",").map(f => f.trim()).filter(Boolean);
 
-  const additionalVersionFiles = (process.env['INPUT_ADDITIONAL-VERSION-FILES'] || "")
-    .split(",")
-    .map(f => f.trim())
-    .filter(f => f.length > 0);
+  const branch = process.env.GITHUB_REF_NAME;
 
-  console.log("versionFile:", versionFile);
-  console.log("envFiles:", envFiles);
-  console.log("additionalVersionFiles:", additionalVersionFiles);
-
-  if (!versionFile) {
-    throw new Error("version-file input is required");
-  }
-
-  if (envFiles.length === 0 || envFiles[0] === "") {
-    throw new Error("env-files input is required");
-  }
-
-  // 🔹 Read JSON version
+  // ---------------------------
+  // READ CURRENT VERSION
+  // ---------------------------
   const data = JSON.parse(fs.readFileSync(versionFile, "utf8"));
   let jsonVersion = data.version;
 
-  console.log("Raw JSON version:", jsonVersion);
-
-  // If it's a git hash or not a semantic version, use a default version
   if (!/^\d+\.\d+\.\d+$/.test(jsonVersion)) {
-    console.log("Invalid version format, using default 1.0.0");
     jsonVersion = "1.0.0";
-    data.version = jsonVersion; // Update the data object
   }
 
-  // 🔹 Read ENV version
-  const envFile = envFiles[0].trim();
-  const envContent = fs.readFileSync(envFile, "utf8");
-  const match = envContent.match(/version:\s*'([\d.]+)'/);
+  const envContent = fs.readFileSync(envFiles[0], "utf8");
+  const match = envContent.match(/version:\s*['"]([\d.]+)['"]/);
+  let envVersion = match ? match[1] : jsonVersion;
 
-  if (!match) throw new Error("ENV version not found");
-
-  let envVersion = match[1];
-
-  console.log("ENV:", envVersion);
-  console.log("JSON:", jsonVersion);
-
-  // 🔹 compare helper
   const versionGreater = (a, b) =>
     a.localeCompare(b, undefined, { numeric: true }) > 0;
 
-  // 🔹 detect core-lib change
-  let coreLibChanged = false;
-  let files = 0;
+  // ---------------------------
+  // SMART DIFF (ROBUST)
+  // ---------------------------
+  let changedFiles = [];
   let insertions = 0;
   let deletions = 0;
 
   try {
-    // Check if we have enough history to compare
-    const gitLog = execSync("git log --oneline | wc -l").toString().trim();
-    const commitCount = parseInt(gitLog);
+    execSync(`git fetch origin ${branch}`);
 
-    if (commitCount > 1) {
-      const diffNames = execSync("git diff --name-only HEAD~1 HEAD").toString().trim();
-      files = diffNames ? diffNames.split("\n").length : 0;
+    const diffNames = execSync(`git diff --name-only origin/${branch}...HEAD`)
+      .toString().trim();
 
-      const diffStats = execSync("git diff --numstat HEAD~1 HEAD").toString().trim();
-      diffStats.split("\n").forEach(line => {
-        const [add, del] = line.split("\t");
-        insertions += parseInt(add) || 0;
-        deletions += parseInt(del) || 0;
-      });
+    changedFiles = diffNames ? diffNames.split("\n") : [];
 
-      const diff = execSync("git diff --name-only HEAD~1 HEAD").toString();
+    const diffStats = execSync(`git diff --numstat origin/${branch}...HEAD`)
+      .toString().trim();
 
-      // Check for changes in both repositories
-      coreLibChanged = diff.includes("projects/core-lib/healthcare-ui-core-lib") ||
-        diff.includes("healthcare-ui-core-lib");
+    diffStats.split("\n").forEach(line => {
+      if (!line) return;
+      const [add, del] = line.split("\t");
+      insertions += parseInt(add) || 0;
+      deletions += parseInt(del) || 0;
+    });
 
-      // Check for any changes in current directory (excluding core-lib)
-      const currentDirChanges = diff.split("\n").filter(file =>
-        !file.includes("projects/core-lib/healthcare-ui-core-lib") &&
-        !file.includes("healthcare-ui-core-lib")
-      ).length > 0;
-
-      let mainRepoChanged = currentDirChanges;
-
-      console.log("Core-lib changed:", coreLibChanged);
-      console.log("Main repo changed:", mainRepoChanged);
-
-      // Determine if any meaningful changes occurred
-      let anyChanges = coreLibChanged || mainRepoChanged;
-
-    } else {
-      console.log("Not enough git history for comparison (only 1 commit)");
-
-      // Fallback: Check for uncommitted changes
-      try {
-        const uncommittedDiff = execSync("git diff --name-only").toString();
-        const stagedDiff = execSync("git diff --cached --name-only").toString();
-        const allChanges = uncommittedDiff + stagedDiff;
-
-        if (allChanges.trim()) {
-          console.log("Found uncommitted changes, analyzing...");
-
-          coreLibChanged = allChanges.includes("projects/core-lib/healthcare-ui-core-lib") ||
-            allChanges.includes("healthcare-ui-core-lib");
-
-          const currentDirChanges = allChanges.split("\n").filter(file =>
-            file.trim() &&
-            !file.includes("projects/core-lib/healthcare-ui-core-lib") &&
-            !file.includes("healthcare-ui-core-lib")
-          ).length > 0;
-
-          mainRepoChanged = currentDirChanges;
-          anyChanges = coreLibChanged || mainRepoChanged;
-
-          console.log("Uncommitted - Core-lib changed:", coreLibChanged);
-          console.log("Uncommitted - Main repo changed:", mainRepoChanged);
-        } else {
-          console.log("No uncommitted changes found");
-          coreLibChanged = false;
-          mainRepoChanged = false;
-          anyChanges = false;
-        }
-      } catch (err) {
-        console.log("Failed to check uncommitted changes:", err.message);
-        coreLibChanged = false;
-        mainRepoChanged = false;
-        anyChanges = false;
-      }
-    }
-
-  } catch (err) {
-    console.log("Git diff failed, assuming no changes:", err.message);
-    coreLibChanged = false;
-    mainRepoChanged = false;
-    anyChanges = false;
+  } catch (e) {
+    console.log("Diff fallback failed:", e.message);
   }
 
-  console.log("Core-lib changed:", coreLibChanged);
+  // ---------------------------
+  // FILTER NON-IMPACT FILES
+  // ---------------------------
+  const ignorePatterns = [
+    "README"
+  ];
 
+  const relevantFiles = changedFiles.filter(file =>
+    !ignorePatterns.some(p => file.includes(p))
+  );
+
+  const files = relevantFiles.length;
+  const totalLines = insertions + deletions;
+
+  console.log("Relevant files:", files);
+  console.log("Lines:", totalLines);
+
+  // ---------------------------
+  // COMMIT MESSAGE INTELLIGENCE
+  // ---------------------------
+  let commitMsg = "";
+  try {
+    commitMsg = execSync("git log -1 --pretty=%B").toString();
+  } catch { }
+
+  let bump = "patch";
+
+  if (/BREAKING CHANGE|!:/i.test(commitMsg)) {
+    bump = "major";
+  } else if (/feat:/i.test(commitMsg)) {
+    bump = "minor";
+  } else if (/fix:/i.test(commitMsg)) {
+    bump = "patch";
+  } else {
+    // fallback to size logic
+    if (files > 10 || totalLines > 100) {
+      bump = "major";
+    } else if (files > 5 || totalLines > 20) {
+      bump = "minor";
+    }
+  }
+
+  console.log("Bump type:", bump);
+
+  // ---------------------------
+  // BASE VERSION LOGIC (your rules)
+  // ---------------------------
   let baseVersion;
 
-  // =====================================================
-  // ✅ STEP 1: Resolve base version
-  // =====================================================
   if (envVersion === jsonVersion) {
-    console.log("Equal versions");
-
-    if (anyChanges) {
-      // increment only when changes exist in either repo
-      let [M, m, p] = jsonVersion.split(".").map(Number);
-      p += 1;
-      baseVersion = `${M}.${m}.${p}`;
-      console.log("Changes detected, incrementing patch version");
-    } else {
-      baseVersion = jsonVersion;
-      console.log("No changes detected, keeping current version");
-    }
-
+    baseVersion = jsonVersion;
   } else if (versionGreater(envVersion, jsonVersion)) {
-    console.log("ENV higher");
     baseVersion = envVersion;
-
   } else {
-    console.log("JSON higher");
     baseVersion = jsonVersion;
   }
 
-  console.log("Base version:", baseVersion);
-
   let [major, minor, patch] = baseVersion.split(".").map(Number);
-  let finalVersion = baseVersion;
 
-  // =====================================================
-  // ✅ STEP 2: Apply smart bump ONLY if any changes detected
-  // =====================================================
-  if (anyChanges) {
-    const totalLines = insertions + deletions;
-
-    console.log(`Files: ${files}, Lines: ${totalLines}`);
-
-    // Determine bump level based on change scope
-    let bumpLevel = "patch";
-
-    if (coreLibChanged && mainRepoChanged) {
-      // Both repos changed - potentially more significant
-      if (files > 10 || totalLines > 100) {
-        bumpLevel = "major";
-      } else if (files > 5 || totalLines > 20) {
-        bumpLevel = "minor";
-      }
-    } else if (coreLibChanged) {
-      // Only core-lib changed
-      if (files > 8 || totalLines > 50) {
-        bumpLevel = "minor";
-      }
-    } else if (mainRepoChanged) {
-      // Only main repo changed
-      if (files > 15 || totalLines > 200) {
-        bumpLevel = "minor";
-      }
-    }
-
-    console.log(`Bump level: ${bumpLevel}`);
-
-    if (bumpLevel === "major") {
-      console.log("Major bump");
-      major += 1;
-      minor = 0;
-      patch = 0;
-    } else if (bumpLevel === "minor") {
-      console.log("Minor bump");
-      minor += 1;
-      patch = 0;
+  // ---------------------------
+  // APPLY BUMP
+  // ---------------------------
+  if (files > 0) {
+    if (bump === "major") {
+      major += 1; minor = 0; patch = 0;
+    } else if (bump === "minor") {
+      minor += 1; patch = 0;
     } else {
-      console.log("Patch bump");
       patch += 1;
     }
-
-    finalVersion = `${major}.${minor}.${patch}`;
   }
 
+  const finalVersion = `${major}.${minor}.${patch}`;
   console.log("Final version:", finalVersion);
 
-  // 🔹 update version.json
+  // ---------------------------
+  // WRITE FILES
+  // ---------------------------
   data.version = finalVersion;
   data.buildTimestamp = Date.now();
   data.buildDate = new Date().toISOString();
 
   fs.writeFileSync(versionFile, JSON.stringify(data, null, 2));
 
-  // 🔹 update env files
   envFiles.forEach(file => {
-    file = file.trim();
-    console.log(`Updating file: ${file}`);
-
     let content = fs.readFileSync(file, "utf8");
-    console.log(`Before update: ${content.match(/version:\s*'[\d.]+'/)?.[0] || 'version not found'}`);
-
     content = content.replace(
-      /version:\s*'[\d.]+'/,
+      /version:\s*['"][\d.]+['"]/,
       `version: '${finalVersion}'`
     );
-
-    console.log(`After update: ${content.match(/version:\s*'[\d.]+'/)?.[0] || 'version not found'}`);
     fs.writeFileSync(file, content);
   });
 
-  // 🔹 Update additional version files
-  additionalVersionFiles.forEach(file => {
-    file = file.trim();
-    console.log(`Updating additional version file: ${file}`);
-
-    try {
-      let versionData = JSON.parse(fs.readFileSync(file, "utf8"));
-      console.log(`Before update: ${versionData.version}`);
-
-      versionData.version = finalVersion;
-      versionData.buildTimestamp = Date.now();
-      versionData.buildDate = new Date().toISOString();
-
-      fs.writeFileSync(file, JSON.stringify(versionData, null, 2));
-      console.log(`After update: ${versionData.version}`);
-    } catch (err) {
-      console.error(`Failed to update ${file}:`, err.message);
-    }
-  });
-
-  // 🔹 Output version for GitHub Actions (using new format)
   console.log(`version=${finalVersion} >> $GITHUB_OUTPUT`);
 
 } catch (err) {
-  console.error(`::error::${err.message}`);
+  console.error(err.message);
   process.exit(1);
 }
