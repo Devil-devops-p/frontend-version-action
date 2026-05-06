@@ -10,6 +10,10 @@ inputs:
     description: "Comma-separated list of environment files to update"
     required: true
 
+  additional-version-files:
+    description: "Comma-separated list of additional version.json files to update"
+    required: false
+
 outputs:
   version:
     description: "Final calculated version"

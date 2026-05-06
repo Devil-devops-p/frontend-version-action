@@ -11,8 +11,14 @@ try {
     .map(f => f.trim())
     .filter(f => f.length > 0);
 
+  const additionalVersionFiles = (process.env['INPUT_ADDITIONAL-VERSION-FILES'] || "")
+    .split(",")
+    .map(f => f.trim())
+    .filter(f => f.length > 0);
+
   console.log("versionFile:", versionFile);
   console.log("envFiles:", envFiles);
+  console.log("additionalVersionFiles:", additionalVersionFiles);
 
   if (!versionFile) {
     throw new Error("version-file input is required");
@@ -74,15 +80,37 @@ try {
       });
 
       const diff = execSync("git diff --name-only HEAD~1 HEAD").toString();
-      coreLibChanged = diff.includes("projects/core-lib/healthcare-ui-core-lib");
+
+      // Check for changes in both repositories
+      coreLibChanged = diff.includes("projects/core-lib/healthcare-ui-core-lib") ||
+        diff.includes("healthcare-ui-core-lib");
+
+      // Check for any changes in current directory (excluding core-lib)
+      const currentDirChanges = diff.split("\n").filter(file =>
+        !file.includes("projects/core-lib/healthcare-ui-core-lib") &&
+        !file.includes("healthcare-ui-core-lib")
+      ).length > 0;
+
+      let mainRepoChanged = currentDirChanges;
+
+      console.log("Core-lib changed:", coreLibChanged);
+      console.log("Main repo changed:", mainRepoChanged);
+
+      // Determine if any meaningful changes occurred
+      let anyChanges = coreLibChanged || mainRepoChanged;
+
     } else {
       console.log("Not enough git history for comparison (only 1 commit)");
       coreLibChanged = false;
+      mainRepoChanged = false;
+      anyChanges = false;
     }
 
   } catch (err) {
-    console.log("Git diff failed, assuming no core-lib changes:", err.message);
+    console.log("Git diff failed, assuming no changes:", err.message);
     coreLibChanged = false;
+    mainRepoChanged = false;
+    anyChanges = false;
   }
 
   console.log("Core-lib changed:", coreLibChanged);
@@ -95,13 +123,15 @@ try {
   if (envVersion === jsonVersion) {
     console.log("Equal versions");
 
-    if (coreLibChanged) {
-      // increment only when changes exist
+    if (anyChanges) {
+      // increment only when changes exist in either repo
       let [M, m, p] = jsonVersion.split(".").map(Number);
       p += 1;
       baseVersion = `${M}.${m}.${p}`;
+      console.log("Changes detected, incrementing patch version");
     } else {
       baseVersion = jsonVersion;
+      console.log("No changes detected, keeping current version");
     }
 
   } else if (versionGreater(envVersion, jsonVersion)) {
@@ -119,27 +149,49 @@ try {
   let finalVersion = baseVersion;
 
   // =====================================================
-  // ✅ STEP 2: Apply smart bump ONLY if core-lib changed
+  // ✅ STEP 2: Apply smart bump ONLY if any changes detected
   // =====================================================
-  if (coreLibChanged) {
+  if (anyChanges) {
     const totalLines = insertions + deletions;
 
     console.log(`Files: ${files}, Lines: ${totalLines}`);
 
-    if (files <= 5 && totalLines <= 20) {
-      console.log("Patch bump");
-      patch += 1;
+    // Determine bump level based on change scope
+    let bumpLevel = "patch";
 
-    } else if ((files > 5 && files <= 10) || (totalLines > 20 && totalLines <= 100)) {
-      console.log("Minor bump");
-      minor += 1;
-      patch = 0;
+    if (coreLibChanged && mainRepoChanged) {
+      // Both repos changed - potentially more significant
+      if (files > 10 || totalLines > 100) {
+        bumpLevel = "major";
+      } else if (files > 5 || totalLines > 20) {
+        bumpLevel = "minor";
+      }
+    } else if (coreLibChanged) {
+      // Only core-lib changed
+      if (files > 8 || totalLines > 50) {
+        bumpLevel = "minor";
+      }
+    } else if (mainRepoChanged) {
+      // Only main repo changed
+      if (files > 15 || totalLines > 200) {
+        bumpLevel = "minor";
+      }
+    }
 
-    } else {
+    console.log(`Bump level: ${bumpLevel}`);
+
+    if (bumpLevel === "major") {
       console.log("Major bump");
       major += 1;
       minor = 0;
       patch = 0;
+    } else if (bumpLevel === "minor") {
+      console.log("Minor bump");
+      minor += 1;
+      patch = 0;
+    } else {
+      console.log("Patch bump");
+      patch += 1;
     }
 
     finalVersion = `${major}.${minor}.${patch}`;
@@ -169,6 +221,26 @@ try {
 
     console.log(`After update: ${content.match(/version:\s*'[\d.]+'/)?.[0] || 'version not found'}`);
     fs.writeFileSync(file, content);
+  });
+
+  // 🔹 Update additional version files
+  additionalVersionFiles.forEach(file => {
+    file = file.trim();
+    console.log(`Updating additional version file: ${file}`);
+
+    try {
+      let versionData = JSON.parse(fs.readFileSync(file, "utf8"));
+      console.log(`Before update: ${versionData.version}`);
+
+      versionData.version = finalVersion;
+      versionData.buildTimestamp = Date.now();
+      versionData.buildDate = new Date().toISOString();
+
+      fs.writeFileSync(file, JSON.stringify(versionData, null, 2));
+      console.log(`After update: ${versionData.version}`);
+    } catch (err) {
+      console.error(`Failed to update ${file}:`, err.message);
+    }
   });
 
   // 🔹 Output version for GitHub Actions (using new format)
