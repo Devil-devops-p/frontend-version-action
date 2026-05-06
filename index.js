@@ -26,8 +26,13 @@ try {
   const data = JSON.parse(fs.readFileSync(versionFile, "utf8"));
   let jsonVersion = data.version;
 
+  console.log("Raw JSON version:", jsonVersion);
+
+  // If it's a git hash or not a semantic version, use a default version
   if (!/^\d+\.\d+\.\d+$/.test(jsonVersion)) {
-    throw new Error("Invalid JSON version");
+    console.log("Invalid version format, using default 1.0.0");
+    jsonVersion = "1.0.0";
+    data.version = jsonVersion; // Update the data object
   }
 
   // 🔹 Read ENV version
