@@ -6,8 +6,6 @@ try {
   const envFiles = (process.env['INPUT_ENV-FILES'] || "")
     .split(",").map(f => f.trim()).filter(Boolean);
 
-  const branch = process.env.GITHUB_REF_NAME;
-
   // ---------------------------
   // READ CURRENT VERSION
   // ---------------------------
@@ -22,12 +20,11 @@ try {
   const match = envContent.match(/version:\s*['"]([\d.]+)['"]/);
   let envVersion = match ? match[1] : jsonVersion;
 
-  const versionGreater = (a, b) =>
-    a.localeCompare(b, undefined, { numeric: true }) > 0;
+  // ---------------------------
+  // DETECT CHANGES
+  // ---------------------------
+  const branch = process.env.GITHUB_REF_NAME;
 
-  // ---------------------------
-  // SMART DIFF (ROBUST)
-  // ---------------------------
   let changedFiles = [];
   let insertions = 0;
   let deletions = 0;
@@ -51,94 +48,69 @@ try {
     });
 
   } catch (e) {
-    console.log("Diff fallback failed:", e.message);
+    console.log("Diff fallback:", e.message);
   }
 
-  // ---------------------------
-  // FILTER NON-IMPACT FILES
-  // ---------------------------
-  const ignorePatterns = [
-    "README"
-  ];
-
-  const relevantFiles = changedFiles.filter(file =>
-    !ignorePatterns.some(p => file.includes(p))
-  );
-
-  // Check for core-lib changes specifically
-  const coreLibChanged = relevantFiles.some(file =>
-    file.includes("projects/core-lib/healthcare-ui-core-lib") ||
-    file.includes("healthcare-ui-core-lib")
-  );
-
-  console.log("Core-lib changed:", coreLibChanged);
-
-  const files = relevantFiles.length;
+  const files = changedFiles.length;
   const totalLines = insertions + deletions;
 
-  console.log("Relevant files:", files);
+  console.log("Files:", files);
   console.log("Lines:", totalLines);
 
   // ---------------------------
-  // COMMIT MESSAGE INTELLIGENCE
+  // BASE VERSION LOGIC
   // ---------------------------
-  let commitMsg = "";
-  try {
-    commitMsg = execSync("git log -1 --pretty=%B").toString();
-  } catch { }
+  let [major, minor, patch] = jsonVersion.split(".").map(Number);
 
-  let bump = "patch";
+  if (files === 0) {
+    console.log("Rebuild");
 
-  if (/BREAKING CHANGE|!:/i.test(commitMsg)) {
-    bump = "major";
-  } else if (/feat:/i.test(commitMsg)) {
-    bump = "minor";
-  } else if (/fix:/i.test(commitMsg)) {
-    bump = "patch";
-  } else {
-    // fallback to size logic with core-lib consideration
-    if (coreLibChanged) {
-      // Core-lib changes are more significant
-      if (files > 8 || totalLines > 50) {
-        bump = "minor";
-      }
-    } else {
-      // Regular changes
-      if (files > 10 || totalLines > 100) {
-        bump = "major";
-      } else if (files > 5 || totalLines > 20) {
-        bump = "minor";
-      }
+    if (envVersion !== jsonVersion) {
+      const versionGreater = (a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }) > 0;
+
+      const higher = versionGreater(envVersion, jsonVersion)
+        ? envVersion
+        : jsonVersion;
+
+      [major, minor, patch] = higher.split(".").map(Number);
     }
-  }
 
-  console.log("Bump type:", bump);
-
-  // ---------------------------
-  // BASE VERSION LOGIC (your rules)
-  // ---------------------------
-  let baseVersion;
-
-  if (envVersion === jsonVersion) {
-    baseVersion = jsonVersion;
-  } else if (versionGreater(envVersion, jsonVersion)) {
-    baseVersion = envVersion;
   } else {
-    baseVersion = jsonVersion;
-  }
+    console.log("Changes detected");
 
-  let [major, minor, patch] = baseVersion.split(".").map(Number);
-
-  // ---------------------------
-  // APPLY BUMP
-  // ---------------------------
-  if (files > 0) {
-    if (bump === "major") {
-      major += 1; minor = 0; patch = 0;
-    } else if (bump === "minor") {
-      minor += 1; patch = 0;
-    } else {
+    // STEP 1: base version
+    if (envVersion === jsonVersion) {
       patch += 1;
+    } else {
+      const versionGreater = (a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }) > 0;
+
+      const higher = versionGreater(envVersion, jsonVersion)
+        ? envVersion
+        : jsonVersion;
+
+      [major, minor, patch] = higher.split(".").map(Number);
+    }
+
+    // STEP 2: smart bump
+    if (files <= 5 && totalLines <= 20) {
+      console.log("PATCH");
+      patch += 1;
+
+    } else if (
+      (files > 5 && files <= 10) ||
+      (totalLines > 20 && totalLines <= 100)
+    ) {
+      console.log("MINOR");
+      minor += 1;
+      patch = 0;
+
+    } else {
+      console.log("MAJOR");
+      major += 1;
+      minor = 0;
+      patch = 0;
     }
   }
 
