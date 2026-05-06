@@ -30,21 +30,21 @@ try {
   let deletions = 0;
 
   try {
-    execSync(`git fetch origin ${branch}`);
-
-    // Try to get diff from origin/branch...HEAD
+    // Try to get diff from previous commit (HEAD~1...HEAD)
     let diffNames, diffStats;
     try {
+      diffNames = execSync(`git diff --name-only HEAD~1...HEAD`)
+        .toString().trim();
+      diffStats = execSync(`git diff --numstat HEAD~1...HEAD`)
+        .toString().trim();
+      console.log("Using previous commit diff");
+    } catch (diffError) {
+      console.log("Previous commit diff failed, trying origin diff:", diffError.message);
+      // Fallback to origin diff
+      execSync(`git fetch origin ${branch}`);
       diffNames = execSync(`git diff --name-only origin/${branch}...HEAD`)
         .toString().trim();
       diffStats = execSync(`git diff --numstat origin/${branch}...HEAD`)
-        .toString().trim();
-    } catch (diffError) {
-      console.log("Origin diff failed, trying uncommitted changes:", diffError.message);
-      // Fallback to checking uncommitted changes
-      diffNames = execSync(`git diff --name-only HEAD`)
-        .toString().trim();
-      diffStats = execSync(`git diff --numstat HEAD`)
         .toString().trim();
     }
 
