@@ -1,46 +1,140 @@
 const fs = require("fs");
+const { execSync } = require("child_process");
 const core = require("@actions/core");
 
 try {
   const versionFile = core.getInput("version-file");
   const envFiles = core.getInput("env-files").split(",");
 
-  // Read version.json
+  // 🔹 Read JSON version
   const data = JSON.parse(fs.readFileSync(versionFile, "utf8"));
-  let version = data.version;
+  let jsonVersion = data.version;
 
-  console.log("Current version:", version);
-
-  // Validate
-  if (!/^\d+\.\d+\.\d+$/.test(version)) {
-    throw new Error("Invalid version format");
+  if (!/^\d+\.\d+\.\d+$/.test(jsonVersion)) {
+    throw new Error("Invalid JSON version");
   }
 
-  // Increment patch
-  let [major, minor, patch] = version.split(".").map(Number);
-  patch += 1;
+  // 🔹 Read ENV version
+  const envFile = envFiles[0].trim();
+  const envContent = fs.readFileSync(envFile, "utf8");
+  const match = envContent.match(/version:\s*'([\d.]+)'/);
 
-  const newVersion = `${major}.${minor}.${patch}`;
-  console.log("New version:", newVersion);
+  if (!match) throw new Error("ENV version not found");
 
-  // Update version.json
-  data.version = newVersion;
+  let envVersion = match[1];
+
+  console.log("ENV:", envVersion);
+  console.log("JSON:", jsonVersion);
+
+  // 🔹 compare helper
+  const versionGreater = (a, b) =>
+    a.localeCompare(b, undefined, { numeric: true }) > 0;
+
+  // 🔹 detect core-lib change
+  let coreLibChanged = false;
+  let files = 0;
+  let insertions = 0;
+  let deletions = 0;
+
+  try {
+    const diffNames = execSync("git diff --name-only HEAD~1 HEAD").toString().trim();
+    files = diffNames ? diffNames.split("\n").length : 0;
+
+    const diffStats = execSync("git diff --numstat HEAD~1 HEAD").toString().trim();
+    diffStats.split("\n").forEach(line => {
+      const [add, del] = line.split("\t");
+      insertions += parseInt(add) || 0;
+      deletions += parseInt(del) || 0;
+    });
+
+    const diff = execSync("git diff --name-only HEAD~1 HEAD").toString();
+    coreLibChanged = diff.includes("projects/core-lib/healthcare-ui-core-lib");
+
+  } catch {}
+
+  console.log("Core-lib changed:", coreLibChanged);
+
+  let baseVersion;
+
+  // =====================================================
+  // ✅ STEP 1: Resolve base version
+  // =====================================================
+  if (envVersion === jsonVersion) {
+    console.log("Equal versions");
+
+    if (coreLibChanged) {
+      // increment only when changes exist
+      let [M, m, p] = jsonVersion.split(".").map(Number);
+      p += 1;
+      baseVersion = `${M}.${m}.${p}`;
+    } else {
+      baseVersion = jsonVersion;
+    }
+
+  } else if (versionGreater(envVersion, jsonVersion)) {
+    console.log("ENV higher");
+    baseVersion = envVersion;
+
+  } else {
+    console.log("JSON higher");
+    baseVersion = jsonVersion;
+  }
+
+  console.log("Base version:", baseVersion);
+
+  let [major, minor, patch] = baseVersion.split(".").map(Number);
+  let finalVersion = baseVersion;
+
+  // =====================================================
+  // ✅ STEP 2: Apply smart bump ONLY if core-lib changed
+  // =====================================================
+  if (coreLibChanged) {
+    const totalLines = insertions + deletions;
+
+    console.log(`Files: ${files}, Lines: ${totalLines}`);
+
+    if (files <= 5 && totalLines <= 20) {
+      console.log("Patch bump");
+      patch += 1;
+
+    } else if ((files > 5 && files <= 10) || (totalLines > 20 && totalLines <= 100)) {
+      console.log("Minor bump");
+      minor += 1;
+      patch = 0;
+
+    } else {
+      console.log("Major bump");
+      major += 1;
+      minor = 0;
+      patch = 0;
+    }
+
+    finalVersion = `${major}.${minor}.${patch}`;
+  }
+
+  console.log("Final version:", finalVersion);
+
+  // 🔹 update version.json
+  data.version = finalVersion;
   data.buildTimestamp = Date.now();
   data.buildDate = new Date().toISOString();
 
   fs.writeFileSync(versionFile, JSON.stringify(data, null, 2));
 
-  // Update env files
+  // 🔹 update env files
   envFiles.forEach(file => {
+    file = file.trim();
     let content = fs.readFileSync(file, "utf8");
+
     content = content.replace(
       /version:\s*'[\d.]+'/,
-      `version: '${newVersion}'`
+      `version: '${finalVersion}'`
     );
+
     fs.writeFileSync(file, content);
   });
 
-  core.setOutput("version", newVersion);
+  core.setOutput("version", finalVersion);
 
 } catch (err) {
   core.setFailed(err.message);

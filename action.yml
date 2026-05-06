@@ -1,19 +1,23 @@
-name: "Version Bump Action"
-description: "Increment version from core-lib and update files"
+name: "Smart Versioning Action"
+description: "Auto versioning based on core-lib changes with fallback logic"
 
 inputs:
   version-file:
-    description: "Path to version.json"
+    description: "Path to version.json (core-lib source of truth)"
     required: true
 
   env-files:
-    description: "Comma-separated env files to update"
+    description: "Comma-separated list of environment files to update"
     required: true
 
 outputs:
   version:
-    description: "New version"
+    description: "Final calculated version"
 
 runs:
   using: "node20"
   main: "index.js"
+
+branding:
+  icon: "git-branch"
+  color: "blue"
