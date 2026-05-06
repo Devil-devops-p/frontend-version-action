@@ -33,6 +33,8 @@ try {
     // Try to get diff from previous commit (HEAD~1...HEAD)
     let diffNames, diffStats;
     try {
+      // Check if there's a previous commit
+      execSync('git rev-parse --verify HEAD~1', { stdio: 'pipe' });
       diffNames = execSync(`git diff --name-only HEAD~1...HEAD`)
         .toString().trim();
       diffStats = execSync(`git diff --numstat HEAD~1...HEAD`)
