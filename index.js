@@ -1,10 +1,9 @@
 const fs = require("fs");
 const { execSync } = require("child_process");
-const core = require("@actions/core");
 
 try {
-  const versionFile = core.getInput("version-file");
-  const envFiles = core.getInput("env-files").split(",");
+  const versionFile = process.env.INPUT_VERSION_FILE || process.argv[2];
+  const envFiles = (process.env.INPUT_ENV_FILES || "").split(",").filter(f => f.trim());
 
   // 🔹 Read JSON version
   const data = JSON.parse(fs.readFileSync(versionFile, "utf8"));
@@ -50,7 +49,7 @@ try {
     const diff = execSync("git diff --name-only HEAD~1 HEAD").toString();
     coreLibChanged = diff.includes("projects/core-lib/healthcare-ui-core-lib");
 
-  } catch {}
+  } catch { }
 
   console.log("Core-lib changed:", coreLibChanged);
 
@@ -134,8 +133,10 @@ try {
     fs.writeFileSync(file, content);
   });
 
-  core.setOutput("version", finalVersion);
+  // 🔹 Output version for GitHub Actions
+  console.log(`::set-output name=version::${finalVersion}`);
 
 } catch (err) {
-  core.setFailed(err.message);
+  console.error(`::error::${err.message}`);
+  process.exit(1);
 }
