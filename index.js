@@ -5,8 +5,8 @@ try {
   // Debug: Log all environment variables that start with INPUT_
   console.log("Available INPUT variables:", Object.keys(process.env).filter(k => k.startsWith('INPUT_')));
 
-  const versionFile = process.env.INPUT_VERSION_FILE;
-  const envFiles = (process.env.INPUT_ENV_FILES || "").split(",").filter(f => f.trim());
+  const versionFile = process.env['INPUT_VERSION-FILE'];
+  const envFiles = (process.env['INPUT_ENV-FILES'] || "").split(",").filter(f => f.trim());
 
   console.log("versionFile:", versionFile);
   console.log("envFiles:", envFiles);
