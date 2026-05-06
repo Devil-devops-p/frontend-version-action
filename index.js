@@ -65,6 +65,14 @@ try {
     !ignorePatterns.some(p => file.includes(p))
   );
 
+  // Check for core-lib changes specifically
+  const coreLibChanged = relevantFiles.some(file =>
+    file.includes("projects/core-lib/healthcare-ui-core-lib") ||
+    file.includes("healthcare-ui-core-lib")
+  );
+
+  console.log("Core-lib changed:", coreLibChanged);
+
   const files = relevantFiles.length;
   const totalLines = insertions + deletions;
 
@@ -88,11 +96,19 @@ try {
   } else if (/fix:/i.test(commitMsg)) {
     bump = "patch";
   } else {
-    // fallback to size logic
-    if (files > 10 || totalLines > 100) {
-      bump = "major";
-    } else if (files > 5 || totalLines > 20) {
-      bump = "minor";
+    // fallback to size logic with core-lib consideration
+    if (coreLibChanged) {
+      // Core-lib changes are more significant
+      if (files > 8 || totalLines > 50) {
+        bump = "minor";
+      }
+    } else {
+      // Regular changes
+      if (files > 10 || totalLines > 100) {
+        bump = "major";
+      } else if (files > 5 || totalLines > 20) {
+        bump = "minor";
+      }
     }
   }
 
