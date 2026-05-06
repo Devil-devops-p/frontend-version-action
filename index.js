@@ -51,6 +51,14 @@ try {
     console.log("Diff fallback:", e.message);
   }
 
+  // Check if core-lib has changes
+  const coreLibChanged = changedFiles.some(file =>
+    file.includes("projects/core-lib/healthcare-ui-core-lib") ||
+    file.includes("healthcare-ui-core-lib")
+  );
+
+  console.log("Core-lib changed:", coreLibChanged);
+
   const files = changedFiles.length;
   const totalLines = insertions + deletions;
 
@@ -81,7 +89,14 @@ try {
 
     // STEP 1: base version
     if (envVersion === jsonVersion) {
-      patch += 1;
+      // If core-lib changed or versions mismatched, increment
+      if (coreLibChanged) {
+        patch += 1;
+        console.log("Core-lib changed and versions equal → increment patch");
+      } else {
+        patch += 1;
+        console.log("Regular changes and versions equal → increment patch");
+      }
     } else {
       const versionGreater = (a, b) =>
         a.localeCompare(b, undefined, { numeric: true }) > 0;
@@ -91,6 +106,7 @@ try {
         : jsonVersion;
 
       [major, minor, patch] = higher.split(".").map(Number);
+      console.log("Versions mismatched → pick higher");
     }
 
     // STEP 2: smart bump
