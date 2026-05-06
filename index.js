@@ -157,13 +157,17 @@ try {
   // 🔹 update env files
   envFiles.forEach(file => {
     file = file.trim();
+    console.log(`Updating file: ${file}`);
+
     let content = fs.readFileSync(file, "utf8");
+    console.log(`Before update: ${content.match(/version:\s*'[\d.]+'/)?.[0] || 'version not found'}`);
 
     content = content.replace(
       /version:\s*'[\d.]+'/,
       `version: '${finalVersion}'`
     );
 
+    console.log(`After update: ${content.match(/version:\s*'[\d.]+'/)?.[0] || 'version not found'}`);
     fs.writeFileSync(file, content);
   });
 
