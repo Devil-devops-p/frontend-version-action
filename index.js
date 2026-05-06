@@ -62,7 +62,8 @@ try {
   const files = changedFiles.length;
   const totalLines = insertions + deletions;
 
-  console.log("Files:", files);
+  console.log("All changed files:", changedFiles);
+  console.log("Files count:", files);
   console.log("Lines:", totalLines);
 
   // ---------------------------
@@ -70,8 +71,12 @@ try {
   // ---------------------------
   let [major, minor, patch] = jsonVersion.split(".").map(Number);
 
-  if (files === 0) {
-    console.log("Rebuild");
+  // Check if this is a rebuild or code commit
+  const isRebuild = files === 0;
+  console.log("Is rebuild:", isRebuild);
+
+  if (isRebuild) {
+    console.log("Rebuild scenario detected");
 
     if (envVersion !== jsonVersion) {
       const versionGreater = (a, b) =>
@@ -82,6 +87,10 @@ try {
         : jsonVersion;
 
       [major, minor, patch] = higher.split(".").map(Number);
+    } else {
+      // Rebuild with no changes - always increment patch
+      console.log("Rebuild with no changes - incrementing patch");
+      patch += 1;
     }
 
   } else {
