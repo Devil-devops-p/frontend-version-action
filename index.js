@@ -6,7 +6,10 @@ try {
   console.log("Available INPUT variables:", Object.keys(process.env).filter(k => k.startsWith('INPUT_')));
 
   const versionFile = process.env['INPUT_VERSION-FILE'];
-  const envFiles = (process.env['INPUT_ENV-FILES'] || "").split(",").filter(f => f.trim());
+  const envFiles = (process.env['INPUT_ENV-FILES'] || "")
+    .split(",")
+    .map(f => f.trim())
+    .filter(f => f.length > 0);
 
   console.log("versionFile:", versionFile);
   console.log("envFiles:", envFiles);
