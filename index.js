@@ -152,15 +152,6 @@ try {
   // ---------------------------
   console.log("📝 Running commit script...");
   try {
-    // Pass environment variables to commit script
-    const commitEnv = {
-      ...process.env,
-      'INPUT_VERSION-FILE': versionFile,
-      'INPUT_ENV-FILES': envFiles.join(','),
-      'GITHUB_OUTPUT_VERSION': FINAL_VERSION,
-      'GITHUB_REF_NAME': process.env.GITHUB_REF_NAME || 'main'
-    };
-
     // Debug: Log what we're passing
     console.log("🔍 Debug - Passing to commit script:");
     console.log("versionFile:", versionFile);
@@ -168,10 +159,19 @@ try {
     console.log("envFiles.join(','):", envFiles.join(','));
     console.log("FINAL_VERSION:", FINAL_VERSION);
 
-    execSync("node commit.js", {
+    // Use environment variable export instead of env parameter
+    const command = `
+      export INPUT_VERSION-FILE="${versionFile}"
+      export INPUT_ENV-FILES="${envFiles.join(',')}"
+      export GITHUB_OUTPUT_VERSION="${FINAL_VERSION}"
+      export GITHUB_REF_NAME="${process.env.GITHUB_REF_NAME || 'main'}"
+      node commit.js
+    `;
+
+    execSync(command, {
       stdio: 'inherit',
       cwd: __dirname,
-      env: commitEnv
+      shell: true
     });
     console.log("✅ Commit completed");
   } catch (error) {
