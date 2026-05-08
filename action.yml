@@ -10,6 +10,11 @@ inputs:
     description: "Comma-separated list of environment files to update"
     required: true
 
+  rebuild:
+    description: "Force rebuild even if versions are equal"
+    required: false
+    default: "false"
+
   additional-version-files:
     description: "Comma-separated list of additional version.json files to update"
     required: false
