@@ -6,25 +6,25 @@ try {
 
   // Debug: Log all environment variables
   console.log("🔍 Debug - Environment variables:");
-  console.log("INPUT_VERSION-FILE:", process.env['INPUT_VERSION-FILE']);
-  console.log("INPUT_ENV-FILES:", process.env['INPUT_ENV-FILES']);
+  console.log("INPUT_VERSION_FILE:", process.env['INPUT_VERSION_FILE']);
+  console.log("INPUT_ENV_FILES:", process.env['INPUT_ENV_FILES']);
   console.log("GITHUB_OUTPUT_VERSION:", process.env['GITHUB_OUTPUT_VERSION']);
   console.log("GITHUB_REF_NAME:", process.env['GITHUB_REF_NAME']);
 
   // ---------------------------
   // GET FILE PATHS FROM ENV
   // ---------------------------
-  const versionFile = process.env['INPUT_VERSION-FILE'];
-  const envFiles = (process.env['INPUT_ENV-FILES'] || "")
+  const versionFile = process.env['INPUT_VERSION_FILE'];
+  const envFiles = (process.env['INPUT_ENV_FILES'] || "")
     .split(",").map(f => f.trim()).filter(Boolean);
 
   if (!versionFile) {
-    console.error("❌ INPUT_VERSION-FILE is required");
+    console.error("❌ INPUT_VERSION_FILE is required");
     process.exit(1);
   }
 
   if (envFiles.length === 0) {
-    console.error("❌ INPUT_ENV-FILES is required");
+    console.error("❌ INPUT_ENV_FILES is required");
     process.exit(1);
   }
 

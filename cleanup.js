@@ -4,6 +4,15 @@ const { execSync } = require("child_process");
 try {
   console.log("🧹 Starting gitignore and cleanup...");
 
+  // Get environment variables
+  const versionFile = process.env['INPUT_VERSION_FILE'];
+  const envFiles = (process.env['INPUT_ENV_FILES'] || "")
+    .split(",").map(f => f.trim()).filter(Boolean);
+
+  console.log("🔍 Debug - Cleanup environment variables:");
+  console.log("INPUT_VERSION_FILE:", versionFile);
+  console.log("INPUT_ENV_FILES:", envFiles);
+
   // ---------------------------
   // ENSURE .GITIGNORE EXISTS
   // ---------------------------

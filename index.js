@@ -129,17 +129,17 @@ try {
   // ---------------------------
   console.log("🧹 Running cleanup script...");
   try {
-    // Pass environment variables to cleanup script
-    const cleanupEnv = {
-      ...process.env,
-      'INPUT_VERSION-FILE': versionFile,
-      'INPUT_ENV-FILES': envFiles.join(',')
-    };
+    // Use environment variable export for cleanup script
+    const cleanupCommand = `
+      export INPUT_VERSION_FILE="${versionFile}"
+      export INPUT_ENV_FILES="${envFiles.join(',')}"
+      node cleanup.js
+    `;
 
-    execSync("node cleanup.js", {
+    execSync(cleanupCommand, {
       stdio: 'inherit',
       cwd: __dirname,
-      env: cleanupEnv
+      shell: true
     });
     console.log("✅ Cleanup completed");
   } catch (error) {
@@ -161,8 +161,8 @@ try {
 
     // Use environment variable export instead of env parameter
     const command = `
-      export INPUT_VERSION-FILE="${versionFile}"
-      export INPUT_ENV-FILES="${envFiles.join(',')}"
+      export INPUT_VERSION_FILE="${versionFile}"
+      export INPUT_ENV_FILES="${envFiles.join(',')}"
       export GITHUB_OUTPUT_VERSION="${FINAL_VERSION}"
       export GITHUB_REF_NAME="${process.env.GITHUB_REF_NAME || 'main'}"
       node commit.js
