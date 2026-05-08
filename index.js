@@ -129,9 +129,17 @@ try {
   // ---------------------------
   console.log("🧹 Running cleanup script...");
   try {
+    // Pass environment variables to cleanup script
+    const cleanupEnv = {
+      ...process.env,
+      'INPUT_VERSION-FILE': versionFile,
+      'INPUT_ENV-FILES': envFiles.join(',')
+    };
+
     execSync("node cleanup.js", {
       stdio: 'inherit',
-      cwd: __dirname
+      cwd: __dirname,
+      env: cleanupEnv
     });
     console.log("✅ Cleanup completed");
   } catch (error) {
@@ -144,11 +152,19 @@ try {
   // ---------------------------
   console.log("📝 Running commit script...");
   try {
-    // Pass version to commit script via environment variable
-    process.env.GITHUB_OUTPUT_VERSION = FINAL_VERSION;
+    // Pass environment variables to commit script
+    const commitEnv = {
+      ...process.env,
+      'INPUT_VERSION-FILE': versionFile,
+      'INPUT_ENV-FILES': envFiles.join(','),
+      'GITHUB_OUTPUT_VERSION': FINAL_VERSION,
+      'GITHUB_REF_NAME': process.env.GITHUB_REF_NAME || 'main'
+    };
+
     execSync("node commit.js", {
       stdio: 'inherit',
-      cwd: __dirname
+      cwd: __dirname,
+      env: commitEnv
     });
     console.log("✅ Commit completed");
   } catch (error) {
