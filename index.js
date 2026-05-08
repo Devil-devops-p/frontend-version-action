@@ -19,7 +19,6 @@ try {
 
   console.log("📦 Version file:", versionFile);
   console.log("📁 Environment files:", envFiles);
-  console.log("🔄 Rebuild:", rebuild);
 
   // ---------------------------
   // READ CURRENT VERSION
@@ -41,10 +40,10 @@ try {
   const runAttempt = process.env['GITHUB_RUN_ATTEMPT'] || '1';
   const eventInputs = process.env['GITHUB_EVENT_INPUTS'] || '{}';
 
-  console.log("🔍 Debug - Rebuild detection:");
-  console.log("GITHUB_RUN_ATTEMPT:", runAttempt);
-  console.log("Original rebuild parameter:", rebuild);
-  console.log("GITHUB_EVENT_INPUTS:", eventInputs);
+  // console.log("🔍 Debug - Rebuild detection:");
+  // console.log("GITHUB_RUN_ATTEMPT:", runAttempt);
+  // console.log("Original rebuild parameter:", rebuild);
+  // console.log("GITHUB_EVENT_INPUTS:", eventInputs);
 
   let REBUILD = rebuild;
   if (parseInt(runAttempt) > 1) {
@@ -54,7 +53,6 @@ try {
     console.log("Original REBUILD parameter:", rebuild);
   }
 
-  console.log("🔄 Final REBUILD value:", REBUILD);
   console.log("ENV_VERSION:", envVersion);
   console.log("JSON_VERSION:", jsonVersion);
   console.log("REBUILD:", REBUILD);
@@ -162,10 +160,10 @@ try {
   console.log("📝 Running commit script...");
   try {
     // Debug: Log what we're passing
-    console.log("🔍 Debug - Passing to commit script:");
-    console.log("versionFile:", versionFile);
-    console.log("envFiles:", envFiles);
-    console.log("envFiles.join(','):", envFiles.join(','));
+    // console.log("🔍 Debug - Passing to commit script:");
+    // console.log("versionFile:", versionFile);
+    // console.log("envFiles:", envFiles);
+    // console.log("envFiles.join(','):", envFiles.join(','));
     console.log("FINAL_VERSION:", FINAL_VERSION);
 
     // Use environment variable export instead of env parameter

@@ -5,13 +5,13 @@ try {
   console.log("🚀 Starting commit process...");
 
   // Debug: Log all environment variables
-  console.log("🔍 Debug - Environment variables:");
-  console.log("INPUT_VERSION_FILE:", process.env['INPUT_VERSION_FILE']);
-  console.log("INPUT_ENV_FILES:", process.env['INPUT_ENV_FILES']);
-  console.log("GITHUB_OUTPUT_VERSION:", process.env['GITHUB_OUTPUT_VERSION']);
-  console.log("GITHUB_REF_NAME:", process.env['GITHUB_REF_NAME']);
-  console.log("WORKSPACE_DIR:", process.env['WORKSPACE_DIR']);
-  console.log("Current working directory:", process.cwd());
+  // console.log("🔍 Debug - Environment variables:");
+  // console.log("INPUT_VERSION_FILE:", process.env['INPUT_VERSION_FILE']);
+  // console.log("INPUT_ENV_FILES:", process.env['INPUT_ENV_FILES']);
+  // console.log("GITHUB_OUTPUT_VERSION:", process.env['GITHUB_OUTPUT_VERSION']);
+  // console.log("GITHUB_REF_NAME:", process.env['GITHUB_REF_NAME']);
+  // console.log("WORKSPACE_DIR:", process.env['WORKSPACE_DIR']);
+  // console.log("Current working directory:", process.cwd());
 
   // ---------------------------
   // GET FILE PATHS FROM ENV

@@ -9,9 +9,9 @@ try {
   const envFiles = (process.env['INPUT_ENV_FILES'] || "")
     .split(",").map(f => f.trim()).filter(Boolean);
 
-  console.log("🔍 Debug - Cleanup environment variables:");
-  console.log("INPUT_VERSION_FILE:", versionFile);
-  console.log("INPUT_ENV_FILES:", envFiles);
+  // console.log("🔍 Debug - Cleanup environment variables:");
+  // console.log("INPUT_VERSION_FILE:", versionFile);
+  // console.log("INPUT_ENV_FILES:", envFiles);
 
   // ---------------------------
   // ENSURE .GITIGNORE EXISTS
