@@ -4,6 +4,13 @@ const { execSync } = require("child_process");
 try {
   console.log("🚀 Starting commit process...");
 
+  // Debug: Log all environment variables
+  console.log("🔍 Debug - Environment variables:");
+  console.log("INPUT_VERSION-FILE:", process.env['INPUT_VERSION-FILE']);
+  console.log("INPUT_ENV-FILES:", process.env['INPUT_ENV-FILES']);
+  console.log("GITHUB_OUTPUT_VERSION:", process.env['GITHUB_OUTPUT_VERSION']);
+  console.log("GITHUB_REF_NAME:", process.env['GITHUB_REF_NAME']);
+
   // ---------------------------
   // GET FILE PATHS FROM ENV
   // ---------------------------
