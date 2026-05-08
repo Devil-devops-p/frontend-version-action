@@ -39,6 +39,12 @@ try {
   // DETECT REBUILD
   // ---------------------------
   const runAttempt = process.env['GITHUB_RUN_ATTEMPT'] || '1';
+  const eventInputs = process.env['GITHUB_EVENT_INPUTS'] || '{}';
+
+  console.log("🔍 Debug - Rebuild detection:");
+  console.log("GITHUB_RUN_ATTEMPT:", runAttempt);
+  console.log("Original rebuild parameter:", rebuild);
+  console.log("GITHUB_EVENT_INPUTS:", eventInputs);
 
   let REBUILD = rebuild;
   if (parseInt(runAttempt) > 1) {
