@@ -140,6 +140,7 @@ try {
     const cleanupCommand = `
       export INPUT_VERSION_FILE="${versionFile}"
       export INPUT_ENV_FILES="${envFiles.join(',')}"
+      export INPUT_REBUILD="${REBUILD}"
       node cleanup.js
     `;
 
