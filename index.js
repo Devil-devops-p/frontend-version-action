@@ -165,12 +165,13 @@ try {
       export INPUT_ENV_FILES="${envFiles.join(',')}"
       export GITHUB_OUTPUT_VERSION="${FINAL_VERSION}"
       export GITHUB_REF_NAME="${process.env.GITHUB_REF_NAME || 'main'}"
+      export WORKSPACE_DIR="${process.cwd()}"
       node commit.js
     `;
 
     execSync(command, {
       stdio: 'inherit',
-      cwd: __dirname,
+      cwd: process.cwd(), // Run from workspace directory, not script directory
       shell: true
     });
     console.log("✅ Commit completed");
