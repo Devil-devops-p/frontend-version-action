@@ -54,6 +54,7 @@ try {
     console.log("Original REBUILD parameter:", rebuild);
   }
 
+  console.log("🔄 Final REBUILD value:", REBUILD);
   console.log("ENV_VERSION:", envVersion);
   console.log("JSON_VERSION:", jsonVersion);
   console.log("REBUILD:", REBUILD);
