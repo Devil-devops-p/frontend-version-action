@@ -5,6 +5,21 @@ try {
   const versionFile = process.env['INPUT_VERSION-FILE'];
   const envFiles = (process.env['INPUT_ENV-FILES'] || "")
     .split(",").map(f => f.trim()).filter(Boolean);
+  const rebuild = process.env['INPUT_REBUILD'] || 'false';
+
+  if (!versionFile) {
+    console.error("❌ INPUT_VERSION-FILE is required");
+    process.exit(1);
+  }
+
+  if (envFiles.length === 0) {
+    console.error("❌ INPUT_ENV-FILES is required");
+    process.exit(1);
+  }
+
+  console.log("📦 Version file:", versionFile);
+  console.log("📁 Environment files:", envFiles);
+  console.log("🔄 Rebuild:", rebuild);
 
   // ---------------------------
   // READ CURRENT VERSION
@@ -21,140 +36,78 @@ try {
   let envVersion = match ? match[1] : jsonVersion;
 
   // ---------------------------
-  // DETECT CHANGES
+  // DETECT REBUILD
   // ---------------------------
-  const branch = process.env.GITHUB_REF_NAME;
+  const runAttempt = process.env['GITHUB_RUN_ATTEMPT'] || '1';
 
-  let changedFiles = [];
-  let insertions = 0;
-  let deletions = 0;
-
-  try {
-    // Try to get diff from previous commit (HEAD~1...HEAD)
-    let diffNames, diffStats;
-    try {
-      // Check if there's a previous commit
-      execSync('git rev-parse --verify HEAD~1', { stdio: 'pipe' });
-      diffNames = execSync(`git diff --name-only HEAD~1...HEAD`)
-        .toString().trim();
-      diffStats = execSync(`git diff --numstat HEAD~1...HEAD`)
-        .toString().trim();
-      console.log("Using previous commit diff");
-    } catch (diffError) {
-      console.log("Previous commit diff failed, trying origin diff:", diffError.message);
-      // Fallback to origin diff
-      execSync(`git fetch origin ${branch}`);
-      diffNames = execSync(`git diff --name-only origin/${branch}...HEAD`)
-        .toString().trim();
-      diffStats = execSync(`git diff --numstat origin/${branch}...HEAD`)
-        .toString().trim();
-    }
-
-    changedFiles = diffNames ? diffNames.split("\n") : [];
-
-    if (diffStats) {
-      diffStats.split("\n").forEach(line => {
-        if (!line) return;
-        const [add, del] = line.split("\t");
-        insertions += parseInt(add) || 0;
-        deletions += parseInt(del) || 0;
-      });
-    }
-
-  } catch (e) {
-    console.log("Diff fallback:", e.message);
+  let REBUILD = rebuild;
+  if (parseInt(runAttempt) > 1) {
+    console.log("Detected re-run → forcing rebuild");
+    REBUILD = "true";
   }
 
-  // Check if core-lib has changes
-  const coreLibChanged = changedFiles.some(file =>
-    file.includes("projects/core-lib/healthcare-ui-core-lib") ||
-    file.includes("healthcare-ui-core-lib")
-  );
-
-  console.log("Core-lib changed:", coreLibChanged);
-
-  const files = changedFiles.length;
-  const totalLines = insertions + deletions;
-
-  console.log("All changed files:", changedFiles);
-  console.log("Files count:", files);
-  console.log("Lines:", totalLines);
+  console.log("ENV_VERSION:", envVersion);
+  console.log("JSON_VERSION:", jsonVersion);
+  console.log("REBUILD:", REBUILD);
 
   // ---------------------------
-  // BASE VERSION LOGIC
+  // VALIDATE SEMVER
   // ---------------------------
-  let [major, minor, patch] = jsonVersion.split(".").map(Number);
+  const is_valid_version = (version) => {
+    return /^[0-9]+\.[0-9]+\.[0-9]+$/.test(version);
+  };
 
-  // Check if this is a rebuild or code commit
-  const isRebuild = files === 0;
-  console.log("Is rebuild:", isRebuild);
+  if (!is_valid_version(envVersion)) {
+    console.log("❌ Invalid ENV_VERSION:", envVersion);
+    process.exit(1);
+  }
 
-  if (isRebuild) {
-    console.log("Rebuild scenario detected");
+  if (!is_valid_version(jsonVersion)) {
+    console.log("❌ Invalid JSON_VERSION:", jsonVersion);
+    process.exit(1);
+  }
 
-    if (envVersion !== jsonVersion) {
-      const versionGreater = (a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }) > 0;
+  // ---------------------------
+  // COMPARE VERSIONS
+  // ---------------------------
+  const version_gt = (a, b) => {
+    return [a, b].sort((x, y) => {
+      const xParts = x.split('.').map(Number);
+      const yParts = y.split('.').map(Number);
+      for (let i = 0; i < 3; i++) {
+        if (xParts[i] > yParts[i]) return 1;
+        if (xParts[i] < yParts[i]) return -1;
+      }
+      return 0;
+    })[0] === a;
+  };
 
-      const higher = versionGreater(envVersion, jsonVersion)
-        ? envVersion
-        : jsonVersion;
+  // ---------------------------
+  // DECIDE VERSION
+  // ---------------------------
+  let FINAL_VERSION;
 
-      [major, minor, patch] = higher.split(".").map(Number);
+  if (envVersion === jsonVersion) {
+    if (REBUILD === "true") {
+      console.log("Rebuild → increment patch");
+      const [MAJOR, MINOR, PATCH] = envVersion.split('.').map(Number);
+      FINAL_VERSION = `${MAJOR}.${MINOR}.${PATCH + 1}`;
     } else {
-      // Rebuild with no changes - always increment patch
-      console.log("Rebuild with no changes - incrementing patch");
-      patch += 1;
+      console.log("Versions equal → increment patch");
+      const [MAJOR, MINOR, PATCH] = envVersion.split('.').map(Number);
+      FINAL_VERSION = `${MAJOR}.${MINOR}.${PATCH + 1}`;
     }
-
   } else {
-    console.log("Changes detected");
-
-    // STEP 1: base version
-    if (envVersion === jsonVersion) {
-      // Always increment for any change (including small 1-word changes)
-      patch += 1;
-      console.log("Changes detected and versions equal → increment patch");
-    } else {
-      const versionGreater = (a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }) > 0;
-
-      const higher = versionGreater(envVersion, jsonVersion)
-        ? envVersion
-        : jsonVersion;
-
-      [major, minor, patch] = higher.split(".").map(Number);
-      console.log("Versions mismatched → pick higher");
-    }
-
-    // STEP 2: smart bump
-    if (files <= 5 && totalLines <= 20) {
-      console.log("PATCH");
-      patch += 1;
-
-    } else if (
-      (files > 5 && files <= 10) ||
-      (totalLines > 20 && totalLines <= 100)
-    ) {
-      console.log("MINOR");
-      minor += 1;
-      patch = 0;
-
-    } else {
-      console.log("MAJOR");
-      major += 1;
-      minor = 0;
-      patch = 0;
-    }
+    console.log("Versions different → pick higher");
+    FINAL_VERSION = version_gt(envVersion, jsonVersion) ? envVersion : jsonVersion;
   }
 
-  const finalVersion = `${major}.${minor}.${patch}`;
-  console.log("Final version:", finalVersion);
+  console.log("FINAL_VERSION:", FINAL_VERSION);
 
   // ---------------------------
   // WRITE FILES
   // ---------------------------
-  data.version = finalVersion;
+  data.version = FINAL_VERSION;
   data.buildTimestamp = Date.now();
   data.buildDate = new Date().toISOString();
 
@@ -164,12 +117,46 @@ try {
     let content = fs.readFileSync(file, "utf8");
     content = content.replace(
       /version:\s*['"][\d.]+['"]/,
-      `version: '${finalVersion}'`
+      `version: '${FINAL_VERSION}'`
     );
     fs.writeFileSync(file, content);
   });
 
-  console.log(`version=${finalVersion} >> $GITHUB_OUTPUT`);
+  console.log(`version=${FINAL_VERSION} >> $GITHUB_OUTPUT`);
+
+  // ---------------------------
+  // CALL CLEANUP SCRIPT
+  // ---------------------------
+  console.log("🧹 Running cleanup script...");
+  try {
+    execSync("node cleanup.js", {
+      stdio: 'inherit',
+      cwd: __dirname
+    });
+    console.log("✅ Cleanup completed");
+  } catch (error) {
+    console.error("❌ Cleanup failed");
+    process.exit(1);
+  }
+
+  // ---------------------------
+  // CALL COMMIT SCRIPT
+  // ---------------------------
+  console.log("📝 Running commit script...");
+  try {
+    // Pass version to commit script via environment variable
+    process.env.GITHUB_OUTPUT_VERSION = FINAL_VERSION;
+    execSync("node commit.js", {
+      stdio: 'inherit',
+      cwd: __dirname
+    });
+    console.log("✅ Commit completed");
+  } catch (error) {
+    console.error("❌ Commit failed");
+    process.exit(1);
+  }
+
+  console.log("🎉 Complete workflow finished successfully!");
 
 } catch (err) {
   console.error(err.message);
