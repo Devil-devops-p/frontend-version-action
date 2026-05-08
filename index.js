@@ -44,6 +44,8 @@ try {
   if (parseInt(runAttempt) > 1) {
     console.log("Detected re-run → forcing rebuild");
     REBUILD = "true";
+  } else {
+    console.log("Original REBUILD parameter:", rebuild);
   }
 
   console.log("ENV_VERSION:", envVersion);
