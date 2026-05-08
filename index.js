@@ -78,15 +78,13 @@ try {
   // COMPARE VERSIONS
   // ---------------------------
   const version_gt = (a, b) => {
-    return [a, b].sort((x, y) => {
-      const xParts = x.split('.').map(Number);
-      const yParts = y.split('.').map(Number);
-      for (let i = 0; i < 3; i++) {
-        if (xParts[i] > yParts[i]) return 1;
-        if (xParts[i] < yParts[i]) return -1;
-      }
-      return 0;
-    })[0] === a;
+    const aParts = a.split('.').map(Number);
+    const bParts = b.split('.').map(Number);
+    for (let i = 0; i < 3; i++) {
+      if (aParts[i] > bParts[i]) return true;
+      if (aParts[i] < bParts[i]) return false;
+    }
+    return false; // equal versions
   };
 
   // ---------------------------
@@ -141,12 +139,12 @@ try {
       export INPUT_VERSION_FILE="${versionFile}"
       export INPUT_ENV_FILES="${envFiles.join(',')}"
       export INPUT_REBUILD="${REBUILD}"
-      node cleanup.js
+      node ${__dirname}/cleanup.js
     `;
 
     execSync(cleanupCommand, {
       stdio: 'inherit',
-      cwd: __dirname,
+      cwd: process.cwd(),
       shell: true
     });
     console.log("✅ Cleanup completed");
