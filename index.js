@@ -161,6 +161,13 @@ try {
       'GITHUB_REF_NAME': process.env.GITHUB_REF_NAME || 'main'
     };
 
+    // Debug: Log what we're passing
+    console.log("🔍 Debug - Passing to commit script:");
+    console.log("versionFile:", versionFile);
+    console.log("envFiles:", envFiles);
+    console.log("envFiles.join(','):", envFiles.join(','));
+    console.log("FINAL_VERSION:", FINAL_VERSION);
+
     execSync("node commit.js", {
       stdio: 'inherit',
       cwd: __dirname,
