@@ -132,8 +132,6 @@ try {
     incrementedVersion
   );
 
-  console.log("🏆 Highest version:", highestVersion);
-
 
   if (REBUILD === "true") {
     if (envVersion === jsonVersion) {
@@ -149,6 +147,8 @@ try {
       console.log(`Versions equal → increment ${versionType}`);
       FINAL_VERSION = incrementVersion(envVersion, versionType);
     } else {
+
+      console.log("🏆 Highest version:", highestVersion);
 
       console.log(`⬆️ Versions different → pick higher ${highestVersion}`);
       FINAL_VERSION = highestVersion;
