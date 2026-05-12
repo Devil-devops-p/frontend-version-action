@@ -6,6 +6,7 @@ try {
   const envFiles = (process.env['INPUT_ENV-FILES'] || "")
     .split(",").map(f => f.trim()).filter(Boolean);
   const rebuild = process.env['INPUT_REBUILD'] || 'false';
+  const versionType = process.env['INPUT_VERSION-TYPE'] || 'patch';
 
   if (!versionFile) {
     console.error("❌ INPUT_VERSION-FILE is required");
@@ -19,6 +20,7 @@ try {
 
   console.log("📦 Version file:", versionFile);
   console.log("📁 Environment files:", envFiles);
+  console.log("🔢 Version type:", versionType);
 
   // ---------------------------
   // READ CURRENT VERSION
@@ -92,21 +94,39 @@ try {
   // ---------------------------
   let FINAL_VERSION;
 
-  if (envVersion === jsonVersion) {
-    if (REBUILD === "true") {
-      console.log("Rebuild → increment patch");
-      const [MAJOR, MINOR, PATCH] = envVersion.split('.').map(Number);
-      FINAL_VERSION = `${MAJOR}.${MINOR}.${PATCH + 1}`;
+
+  if (REBUILD === "true") {
+    if (envVersion === jsonVersion) {
+
+      console.log(`No changes ${versionType}`);
     } else {
-      console.log("Versions equal → increment patch");
-      const [MAJOR, MINOR, PATCH] = envVersion.split('.').map(Number);
-      FINAL_VERSION = `${MAJOR}.${MINOR}.${PATCH + 1}`;
+      console.log("Versions different → pick higher");
+      FINAL_VERSION = version_gt(envVersion, jsonVersion) ? envVersion : jsonVersion;
     }
   } else {
-    console.log("Versions different → pick higher");
-    FINAL_VERSION = version_gt(envVersion, jsonVersion) ? envVersion : jsonVersion;
-  }
+    if (envVersion === jsonVersion) {
 
+      const incrementVersion = (version, type) => {
+        const [MAJOR, MINOR, PATCH] = version.split('.').map(Number);
+
+        switch (type) {
+          case 'major':
+            return `${MAJOR + 1}.0.0`;
+          case 'minor':
+            return `${MAJOR}.${MINOR + 1}.0`;
+          case 'patch':
+          default:
+            return `${MAJOR}.${MINOR}.${PATCH + 1}`;
+        }
+      };
+
+      console.log(`Rebuild → increment ${versionType}`);
+      FINAL_VERSION = incrementVersion(envVersion, versionType);
+    } else {
+      console.log("Versions different → pick higher");
+      FINAL_VERSION = version_gt(envVersion, jsonVersion) ? envVersion : jsonVersion;
+    }
+  }
   console.log("FINAL_VERSION:", FINAL_VERSION);
 
   // ---------------------------
