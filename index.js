@@ -6,7 +6,7 @@ try {
   const envFiles = (process.env['INPUT_ENV-FILES'] || "")
     .split(",").map(f => f.trim()).filter(Boolean);
   const rebuild = process.env['INPUT_REBUILD'] || 'false';
-  const versionType = process.env['INPUT_VERSION-TYPE'] || 'patch';
+  const versionType = process.env['INPUT_VERSION_TYPE'] || 'patch';
 
   if (!versionFile) {
     console.error("❌ INPUT_VERSION-FILE is required");

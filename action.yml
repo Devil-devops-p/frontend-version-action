@@ -19,7 +19,7 @@ inputs:
     description: "Comma-separated list of additional version.json files to update"
     required: false
 
-  version-type:
+  version_type:
     description: "Select version bump type"
     required: false
     default: "patch"
