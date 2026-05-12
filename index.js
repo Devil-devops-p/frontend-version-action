@@ -95,20 +95,6 @@ try {
   let FINAL_VERSION;
 
 
-  const incrementVersion = (version, type) => {
-    const [MAJOR, MINOR, PATCH] = version.split('.').map(Number);
-
-    switch (type) {
-      case 'major':
-        return `${MAJOR + 1}.0.0`;
-      case 'minor':
-        return `${MAJOR}.${MINOR + 1}.0`;
-      case 'patch':
-      default:
-        return `${MAJOR}.${MINOR}.${PATCH + 1}`;
-    }
-  };
-
   if (REBUILD === "true") {
     if (envVersion === jsonVersion) {
       console.log(`No changes ${versionType}`);
@@ -118,6 +104,21 @@ try {
     }
   } else {
     if (envVersion === jsonVersion) {
+
+      const incrementVersion = (version, type) => {
+        const [MAJOR, MINOR, PATCH] = version.split('.').map(Number);
+
+        switch (type) {
+          case 'major':
+            return `${MAJOR + 1}.0.0`;
+          case 'minor':
+            return `${MAJOR}.${MINOR + 1}.0`;
+          case 'patch':
+          default:
+            return `${MAJOR}.${MINOR}.${PATCH + 1}`;
+        }
+      };
+
       console.log(`Versions equal → increment ${versionType}`);
       FINAL_VERSION = incrementVersion(envVersion, versionType);
     } else {
