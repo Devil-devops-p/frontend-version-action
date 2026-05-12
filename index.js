@@ -119,10 +119,17 @@ try {
   // ---------------------------
   let FINAL_VERSION;
 
+  // const currentHighestVersion = getHighestVersion(
+  //   envVersion,
+  //   jsonVersion
+  // );
+
+  const incrementedVersion = incrementVersion(currentHighestVersion, versionType);
+
   const highestVersion = getHighestVersion(
     envVersion,
-    incrementVersion,
-    jsonVersion
+    jsonVersion,
+    incrementedVersion
   );
 
   console.log("🏆 Highest version:", highestVersion);
