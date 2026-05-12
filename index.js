@@ -57,7 +57,7 @@ try {
 
   console.log("ENV_VERSION:", envVersion);
   console.log("JSON_VERSION:", jsonVersion);
-  console.log("CURRENT_VERSION:", currentVersion);
+  // console.log("CURRENT_VERSION:", currentVersion);
   console.log("REBUILD:", REBUILD);
 
   // ---------------------------
