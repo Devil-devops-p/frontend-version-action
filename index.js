@@ -121,8 +121,8 @@ try {
 
   const highestVersion = getHighestVersion(
     envVersion,
-    jsonVersion,
-    currentVersion
+    incrementVersion,
+    jsonVersion
   );
 
   console.log("🏆 Highest version:", highestVersion);
