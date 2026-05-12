@@ -40,7 +40,7 @@ try {
   // DETECT REBUILD
   // ---------------------------
   const runAttempt = process.env['GITHUB_RUN_ATTEMPT'] || '1';
-  const eventInputs = process.env['GITHUB_EVENT_INPUTS'] || '{}';
+  // const eventInputs = process.env['GITHUB_EVENT_INPUTS'] || '{}';
 
   // console.log("🔍 Debug - Rebuild detection:");
   // console.log("GITHUB_RUN_ATTEMPT:", runAttempt);
@@ -57,6 +57,7 @@ try {
 
   console.log("ENV_VERSION:", envVersion);
   console.log("JSON_VERSION:", jsonVersion);
+  console.log("CURRENT_VERSION:", currentVersion);
   console.log("REBUILD:", REBUILD);
 
   // ---------------------------
@@ -79,14 +80,38 @@ try {
   // ---------------------------
   // COMPARE VERSIONS
   // ---------------------------
-  const version_gt = (a, b) => {
+  const compareVersions = (a, b) => {
     const aParts = a.split('.').map(Number);
     const bParts = b.split('.').map(Number);
+
     for (let i = 0; i < 3; i++) {
-      if (aParts[i] > bParts[i]) return true;
-      if (aParts[i] < bParts[i]) return false;
+      if (aParts[i] > bParts[i]) return 1;
+      if (aParts[i] < bParts[i]) return -1;
     }
-    return false; // equal versions
+    return 0;
+  };
+
+  const getHighestVersion = (...versions) => {
+    return versions.reduce((max, v) =>
+      compareVersions(v, max) > 0 ? v : max
+    );
+  };
+
+  // ---------------------------
+  // VERSION INCREMENT
+  // ---------------------------
+  const incrementVersion = (version, type) => {
+    const [MAJOR, MINOR, PATCH] = version.split('.').map(Number);
+
+    switch (type) {
+      case 'major':
+        return `${MAJOR + 1}.0.0`;
+      case 'minor':
+        return `${MAJOR}.${MINOR + 1}.0`;
+      case 'patch':
+      default:
+        return `${MAJOR}.${MINOR}.${PATCH + 1}`;
+    }
   };
 
   // ---------------------------
@@ -94,36 +119,32 @@ try {
   // ---------------------------
   let FINAL_VERSION;
 
+  const highestVersion = getHighestVersion(
+    envVersion,
+    jsonVersion,
+    currentVersion
+  );
+
+  console.log("🏆 Highest version:", highestVersion);
+
 
   if (REBUILD === "true") {
     if (envVersion === jsonVersion) {
-      console.log(`No changes ${versionType}`);
+      console.log(`🔁 Rebuild (no increment)`);
+      FINAL_VERSION = jsonVersion;
     } else {
       console.log("Versions different → pick higher");
-      FINAL_VERSION = version_gt(envVersion, jsonVersion) ? envVersion : jsonVersion;
+      FINAL_VERSION = compareVersions(envVersion, jsonVersion) > 0 ? envVersion : jsonVersion;
     }
   } else {
     if (envVersion === jsonVersion) {
 
-      const incrementVersion = (version, type) => {
-        const [MAJOR, MINOR, PATCH] = version.split('.').map(Number);
-
-        switch (type) {
-          case 'major':
-            return `${MAJOR + 1}.0.0`;
-          case 'minor':
-            return `${MAJOR}.${MINOR + 1}.0`;
-          case 'patch':
-          default:
-            return `${MAJOR}.${MINOR}.${PATCH + 1}`;
-        }
-      };
-
       console.log(`Versions equal → increment ${versionType}`);
       FINAL_VERSION = incrementVersion(envVersion, versionType);
     } else {
-      console.log("Versions different → pick higher");
-      FINAL_VERSION = version_gt(envVersion, jsonVersion) ? envVersion : jsonVersion;
+
+      console.log(`⬆️ Versions different → pick higher ${highestVersion}`);
+      FINAL_VERSION = highestVersion;
     }
   }
   console.log("FINAL_VERSION:", FINAL_VERSION);
